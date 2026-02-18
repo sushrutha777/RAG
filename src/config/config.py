@@ -11,7 +11,7 @@ class Config:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
     # LLM configuration (LangChain syntax: "provider:model_name")
-    LLM_MODEL = "google_genai:gemini-2.5-flash-preview-09-2025"
+    LLM_MODEL = "google_genai:gemini-2.5-flash"
 
     # Document processing
     CHUNK_SIZE = 500
