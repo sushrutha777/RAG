@@ -184,8 +184,7 @@ class RAGNodes:
             "winner", "champion", "election", "price", "score", "result",
             "who is", "who won", "what happened", "what happend", "who was",
             "breaking", "news", "update", "announced", "launched",
-            "struck", "striked", "attacked", "war", "missile", "bomb",
-            "2023", "2024", "2025", "2026", "2027"
+            "attacked", "war", "2023", "2024", "2025", "2026", "2027"
         ]
         is_time_sensitive = any(k in q_lower for k in time_sensitive_keywords)
 
