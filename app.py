@@ -200,7 +200,9 @@ def main():
                 raw_answer = result.get("answer")
                 answer = normalize_answer(raw_answer)
 
-                if not answer or not answer.strip():
+                clean_answer = answer.split("(Tool Used:")[0].strip() if answer else ""
+                
+                if not clean_answer:
                     answer = ("I'm sorry, I don't have specific information about that right now. "
                               "Please try rephrasing your question or ask something else.")
 

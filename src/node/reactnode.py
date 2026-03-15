@@ -288,7 +288,12 @@ class RAGNodes:
 
         try:
             final_msg = self.llm.invoke(final_prompt)
-            answer = getattr(final_msg, "content", str(final_msg))
+            answer = getattr(final_msg, "content", str(final_msg)).strip()
+            
+            if not answer:
+                answer = ("I'm sorry, I don't have specific information about that right now. "
+                          "Please try rephrasing your question or ask something else.")
+
             # Append tool usage info
             if used_tool_name and used_tool_name != "none":
                 answer += f"\n\n(Tool Used: {used_tool_name})"
