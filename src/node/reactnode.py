@@ -158,7 +158,11 @@ class RAGNodes:
         if not tool:
             return f"Tool '{name}' does not exist."
         try:
-            return tool.func(input)
+            result = tool.func(input)
+            # Guard against empty/None results from tools
+            if not result or (isinstance(result, str) and not result.strip()):
+                return f"Tool '{name}' returned no results for: {input}"
+            return result
         except Exception as e:
             return f"Tool '{name}' failed: {e}"
 
@@ -176,9 +180,12 @@ class RAGNodes:
         # detect time-sensitive / "latest" style questions 
         q_lower = question.lower()
         time_sensitive_keywords = [
-            "latest", "today", "yesterday", "current", "now", "recent", "this year",
+            "latest", "today", "yesterday", "current", "now", "recent", "this year","last week", "last month", "this month", "this week",
             "winner", "champion", "election", "price", "score", "result",
-            "who is", "who won", "What happend","who was", "2023", "2024", "2025","2026","2027"
+            "who is", "who won", "what happened", "what happend", "who was",
+            "breaking", "news", "update", "announced", "launched",
+            "struck", "striked", "attacked", "war", "missile", "bomb",
+            "2023", "2024", "2025", "2026", "2027"
         ]
         is_time_sensitive = any(k in q_lower for k in time_sensitive_keywords)
 
@@ -270,7 +277,13 @@ class RAGNodes:
             "3. Do NOT mention that you are using tools, ReAct, or internal reasoning.\n"
             "4. Just give a natural, direct answer for the user.\n"
             "5. Use the conversation history to resolve any pronouns or references "
-            "   (e.g. 'he', 'it', 'that') to the correct entities from prior messages.\n\n"
+            "   (e.g. 'he', 'it', 'that') to the correct entities from prior messages.\n"
+            "6. You MUST always provide a non-empty response. If you truly cannot find any "
+            "   relevant information, say something like: 'I don't have specific information "
+            "   about this right now. This could be because the topic is very recent or not "
+            "   covered in my available sources. You may want to check a live news source "
+            "   for the latest updates.'\n"
+            "7. NEVER return an empty or blank answer.\n\n"
             "Final Answer:"
         )
 

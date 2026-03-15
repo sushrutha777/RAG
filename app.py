@@ -80,7 +80,7 @@ def initialize_rag(rebuild_index: bool = False):
             
     # If we need to build (fresh start or rebuild requested)
     if not os.path.exists(VECTORSTORE_PATH) or rebuild_index:
-        sources = Config.DEFAULT_URLS
+        sources = Config.DEFAULT_URLS.copy()  # copy to avoid mutating class list
         if os.path.exists("data"):
             sources.append("data")
             
@@ -199,6 +199,10 @@ def main():
             if result:
                 raw_answer = result.get("answer")
                 answer = normalize_answer(raw_answer)
+
+                if not answer or not answer.strip():
+                    answer = ("I'm sorry, I don't have specific information about that right now. "
+                              "Please try rephrasing your question or ask something else.")
 
                 st.markdown(answer)
                 st.caption(f"Response time: {elapsed:.2f}s")

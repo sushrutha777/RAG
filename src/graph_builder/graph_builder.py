@@ -43,19 +43,18 @@ class GraphBuilder:
         builder.add_edge("retriever", "decision_engine")
         
         # Conditional routing from decision_engine
+        # ALL paths go to responder — even "out_of_scope" — so the ReAct
+        # agent can fall back to web_search / wikipedia for answers the
+        # indexed documents don't cover.
         def route_decision(state: RAGState):
-            if state.decision == "out_of_scope":
-                return "end"
-            elif state.decision == "need_more_context":
-                return "responder"
-            else: # answer_from_documents
-                return "responder"
+            # Always route to responder; it has web_search for out-of-scope
+            # and time-sensitive queries.
+            return "responder"
                 
         builder.add_conditional_edges(
             "decision_engine",
             route_decision,
             {
-                "end": END,
                 "responder": "responder"
             }
         )
