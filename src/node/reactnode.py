@@ -16,7 +16,7 @@ class RAGNodes:
         self.llm = llm                  # Chat model
         self.tools = {}
 
-    # ── helpers ──────────────────────────────────────────────
+    # helpers
     def _format_history(self, state: RAGState) -> str:
         """Format prior messages into a readable conversation history string.
         
@@ -178,7 +178,7 @@ class RAGNodes:
         time_sensitive_keywords = [
             "latest", "today", "yesterday", "current", "now", "recent", "this year",
             "winner", "champion", "election", "price", "score", "result",
-            "who is", "who won", "What happend","who was", "2023", "2024", "2025","2026"
+            "who is", "who won", "What happend","who was", "2023", "2024", "2025","2026","2027"
         ]
         is_time_sensitive = any(k in q_lower for k in time_sensitive_keywords)
 
@@ -196,7 +196,7 @@ class RAGNodes:
             "  - web_search: real-time web search, always up-to-date.\n\n"
             "CRITICAL RULES:\n"
             "1. If the question involves recent events, sports results, elections, champions, "
-            "   financial markets, 'latest', 'current', 'today', or specific years like 2023/2024/2025,\n"
+            "   financial markets, 'latest', 'current', 'today','yesterday' or specific years like 2023/2024/2025/2026/2027,\n"
             "   you MUST use the 'web_search' tool.\n"
             "2. Only answer directly with no tool if you are VERY sure the answer is timeless.\n"
             "3. Respond EXACTLY in this JSON format (no extra text):\n\n"
