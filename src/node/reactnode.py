@@ -182,7 +182,7 @@ class RAGNodes:
         time_sensitive_keywords = [
             "latest", "today", "yesterday", "current", "now", "recent", "this year","last week", "last month", "this month", "this week",
             "winner", "champion", "election", "price", "score", "result",
-            "who is", "who won", "what happened", "what happend", "who was",
+            "who is", "who won", "what happened", "who was",
             "breaking", "news", "update", "announced", "launched",
             "attacked", "war", "2023", "2024", "2025", "2026", "2027"
         ]
