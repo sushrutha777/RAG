@@ -1,6 +1,8 @@
 """Graph builder for LangGraph workflow"""
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage, AIMessage
 from src.state.rag_state import RAGState
 from src.node.reactnode import RAGNodes
 
@@ -17,6 +19,7 @@ class GraphBuilder:
         """
         self.nodes = RAGNodes(retriever, llm)
         self.graph = None
+        self.memory = MemorySaver()
     
     def build(self):
         """
@@ -44,8 +47,6 @@ class GraphBuilder:
             if state.decision == "out_of_scope":
                 return "end"
             elif state.decision == "need_more_context":
-                # We can either go to a web search node or just to responder 
-                # and let responder handle it (it already has web search logic)
                 return "responder"
             else: # answer_from_documents
                 return "responder"
@@ -61,16 +62,20 @@ class GraphBuilder:
         
         builder.add_edge("responder", END)
         
-        # Compile graph
-        self.graph = builder.compile()
+        # Compile graph with memory checkpointer
+        self.graph = builder.compile(checkpointer=self.memory)
         return self.graph
     
-    def run(self, question: str) -> dict:
+    def run(self, question: str, thread_id: str = None, chat_history: list = None) -> dict:
         """
         Run the RAG workflow
         
         Args:
             question: User question
+            thread_id: Optional thread ID for conversation memory.
+            chat_history: List of prior chat dicts [{"role": "user"|"assistant", "content": str}].
+                          These are converted to LangChain message objects so the agent
+                          can resolve pronouns and follow-up references.
             
         Returns:
             Final state with answer
@@ -78,8 +83,25 @@ class GraphBuilder:
         if self.graph is None:
             self.build()
         
-        initial_state = RAGState(question=question)
-        result = self.graph.invoke(initial_state)
+        # Build full message history from Streamlit chat_history
+        messages = []
+        if chat_history:
+            for msg in chat_history:
+                if msg["role"] == "user":
+                    messages.append(HumanMessage(content=msg["content"]))
+                else:
+                    messages.append(AIMessage(content=msg["content"]))
+        # Always append the current question as the last message
+        messages.append(HumanMessage(content=question))
+        
+        initial_state = RAGState(
+            question=question,
+            messages=messages
+        )
+        
+        # Build config with thread_id for memory persistence
+        config = {"configurable": {"thread_id": thread_id}} if thread_id else None
+        result = self.graph.invoke(initial_state, config=config)
         
         # Ensure result is a dict for app.py
         if not isinstance(result, dict):

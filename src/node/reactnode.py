@@ -5,6 +5,7 @@ import re
 from typing import List
 from src.state.rag_state import RAGState
 from langchain_core.tools import Tool
+from langchain_core.messages import AIMessage
 
 
 class RAGNodes:
@@ -14,6 +15,24 @@ class RAGNodes:
         self.retriever = retriever      # VectorStoreRetriever
         self.llm = llm                  # Chat model
         self.tools = {}
+
+    # ── helpers ──────────────────────────────────────────────
+    def _format_history(self, state: RAGState) -> str:
+        """Format prior messages into a readable conversation history string.
+        
+        Excludes the current (last) HumanMessage so the caller can
+        place it separately in the prompt.
+        """
+        if not state.messages or len(state.messages) <= 1:
+            return "No prior conversation."
+        
+        lines = []
+        for msg in state.messages[:-1]:          # skip current question
+            role = "User" if msg.type == "human" else "Assistant"
+            # Truncate very long messages to keep prompts manageable
+            content = msg.content[:800] if isinstance(msg.content, str) else str(msg.content)[:800]
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)
 
     # 1. RETRIEVE DOCUMENTS NODE
     def retrieve_docs(self, state: RAGState) -> RAGState:
@@ -148,6 +167,9 @@ class RAGNodes:
         """Generate answer using a manual ReAct loop (with web_search for latest info)."""
         question = state.question
 
+        # Build conversation history for context continuity
+        history_context = self._format_history(state)
+
         if not self.tools:
             self._build_tools()
 
@@ -182,6 +204,7 @@ class RAGNodes:
             '  "tool": "<retriever | wikipedia | web_search | none>",\n'
             '  "input": "<tool input or empty if none>"\n'
             "}\n\n"
+            f"Conversation history:\n{history_context}\n\n"
             f"User question: {question}"
         )
 
@@ -231,9 +254,10 @@ class RAGNodes:
             # No tool: we'll answer from prior knowledge only
             tool_result = "No external tool was used. Answer from your own knowledge."
 
-        # Step 3: Final Answer Synthesis
+        # Step 3: Final Answer Synthesis — with conversation history
         final_prompt = (
             "You are an expert assistant.\n\n"
+            f"Conversation history:\n{history_context}\n\n"
             f"User question:\n{question}\n\n"
             f"Tool chosen: {used_tool_name}\n"
             f"Tool input: {tool_input}\n\n"
@@ -244,7 +268,9 @@ class RAGNodes:
             "2. If the tool_result is empty or unhelpful, you may answer from your own knowledge, "
             "   but make it clear it's based on general knowledge and may be outdated.\n"
             "3. Do NOT mention that you are using tools, ReAct, or internal reasoning.\n"
-            "4. Just give a natural, direct answer for the user.\n\n"
+            "4. Just give a natural, direct answer for the user.\n"
+            "5. Use the conversation history to resolve any pronouns or references "
+            "   (e.g. 'he', 'it', 'that') to the correct entities from prior messages.\n\n"
             "Final Answer:"
         )
 
@@ -258,4 +284,8 @@ class RAGNodes:
             answer = f"LLM error during final answer: {e}"
 
         state.answer = answer
+
+        # Persist the assistant reply in messages for memory continuity
+        state.messages.append(AIMessage(content=answer))
+
         return state
