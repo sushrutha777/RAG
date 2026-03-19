@@ -137,14 +137,27 @@ class RAGNodes:
             func=wiki_api.run,
         )
 
-        # DUCKDUCKGO WEB SEARCH TOOL
-        ddg = DuckDuckGoSearchRun()
-    
-        websearch_tool = Tool(
-            name="web_search",
-            description="Unlimited web search using DuckDuckGo.",
-            func=ddg.run,
-        )
+        # WEB SEARCH TOOL (Tavily or DuckDuckGo based on config)
+        from src.config.config import Config
+
+        if Config.SEARCH_PROVIDER == "tavily" and Config.TAVILY_API_KEY:
+            from langchain_tavily import TavilySearch
+            tavily_search = TavilySearch(
+                max_results=5,
+                topic="general",
+            )
+            websearch_tool = Tool(
+                name="web_search",
+                description="Real-time web search using Tavily.",
+                func=lambda query: tavily_search.invoke({"query": query}),
+            )
+        else:
+            ddg = DuckDuckGoSearchRun()
+            websearch_tool = Tool(
+                name="web_search",
+                description="Unlimited web search using DuckDuckGo.",
+                func=ddg.run,
+            )
         # REGISTER ALL TOOLS
         self.tools = {
             "retriever": retriever_tool,
