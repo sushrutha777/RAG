@@ -90,8 +90,10 @@ class GraphBuilder:
                     messages.append(HumanMessage(content=msg["content"]))
                 else:
                     messages.append(AIMessage(content=msg["content"]))
-        # Always append the current question as the last message
-        messages.append(HumanMessage(content=question))
+        
+        # Only append the current question if it's not already the last message
+        if not messages or getattr(messages[-1], "content", None) != question:
+            messages.append(HumanMessage(content=question))
         
         initial_state = RAGState(
             question=question,

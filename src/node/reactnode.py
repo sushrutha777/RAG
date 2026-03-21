@@ -208,7 +208,7 @@ class RAGNodes:
             "3. Respond EXACTLY in this JSON format (no extra text):\n\n"
             "{\n"
             '  "tool": "<retriever | wikipedia | web_search | none>",\n'
-            '  "input": "<tool input or empty if none>"\n'
+            '  "input": "<STANDALONE search query. You MUST resolve all pronouns using the Conversation history>"\n'
             "}\n\n"
             f"Conversation history:\n{history_context}\n\n"
             f"User question: {question}"
@@ -266,6 +266,8 @@ class RAGNodes:
             "Your task is to answer the user's question ONLY using the provided retrieved context.\n\n"
             "Context:\n"
             f"{tool_result}\n\n"
+            "Conversation History:\n"
+            f"{history_context}\n\n"
             "Question:\n"
             f"{question}\n\n"
             "STRICT RULES:\n\n"
