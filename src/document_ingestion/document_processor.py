@@ -24,6 +24,8 @@ class DocumentProcessor:
         """
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        # Try splitting at "\n\n" 
+        # "RecursiveCharacterTextSplitter splits at correct ending positions"
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
