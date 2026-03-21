@@ -32,14 +32,16 @@ class GraphBuilder:
         builder = StateGraph(RAGState)
         
         # Add nodes
+        builder.add_node("rewrite_query", self.nodes.rewrite_query)
         builder.add_node("retriever", self.nodes.retrieve_docs)
         builder.add_node("decision_engine", self.nodes.decision_engine)
         builder.add_node("responder", self.nodes.generate_answer)
         
-        # Set entry point
-        builder.set_entry_point("retriever")
+        # Set entry point — rewrite first so pronouns are resolved
+        builder.set_entry_point("rewrite_query")
         
         # Add edges
+        builder.add_edge("rewrite_query", "retriever")
         builder.add_edge("retriever", "decision_engine")
         
         # Conditional routing from decision_engine

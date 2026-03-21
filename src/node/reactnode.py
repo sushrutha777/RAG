@@ -34,6 +34,47 @@ class RAGNodes:
             lines.append(f"{role}: {content}")
         return "\n".join(lines)
 
+    # 0. REWRITE QUERY NODE — resolve pronouns / follow-ups
+    def rewrite_query(self, state: RAGState) -> RAGState:
+        """Rewrite the user question into a standalone query using conversation history.
+
+        If there is no prior conversation, the question is returned as-is.
+        This ensures pronouns like 'he', 'she', 'it', 'they' are resolved
+        before the retriever or web search sees the query.
+        """
+        history = self._format_history(state)
+
+        # Nothing to rewrite when there's no prior conversation
+        if history == "No prior conversation.":
+            return state
+
+        rewrite_prompt = (
+            "You are a query rewriter. Your ONLY job is to rewrite the user's "
+            "follow-up question into a fully standalone question that does not "
+            "rely on any conversation context.\n\n"
+            "Rules:\n"
+            "1. Replace ALL pronouns (he, she, it, they, him, her, etc.) with "
+            "the actual entity they refer to from the conversation history.\n"
+            "2. Keep the rewritten question concise and natural.\n"
+            "3. Output ONLY the rewritten question — no explanation, no quotes, "
+            "no extra text.\n"
+            "4. If the question is already standalone, return it unchanged.\n\n"
+            f"Conversation history:\n{history}\n\n"
+            f"Follow-up question: {state.question}\n\n"
+            "Rewritten standalone question:"
+        )
+
+        try:
+            msg = self.llm.invoke(rewrite_prompt)
+            rewritten = getattr(msg, "content", str(msg)).strip()
+            # Only accept if the model actually returned something useful
+            if rewritten and len(rewritten) > 2:
+                state.question = rewritten
+        except Exception:
+            pass  # keep original question on failure
+
+        return state
+
     # 1. RETRIEVE DOCUMENTS NODE
     def retrieve_docs(self, state: RAGState) -> RAGState:
         """Retrieve relevant docs for the given question."""
