@@ -223,10 +223,13 @@ class RAGNodes:
             try:
                 decision_msg = self.llm.invoke(think_prompt)
                 decision_text = getattr(decision_msg, "content", str(decision_msg)).strip()
+                decision_text = re.sub(r"^```(?:json)?\s*", "", decision_text, flags=re.IGNORECASE)
+                decision_text = re.sub(r"\s*```$", "", decision_text).strip()
                 parsed = json.loads(decision_text)
                 tool_input = parsed.get("input") or question
             except Exception:
-                tool_input = question
+                m_in = re.search(r'"input"\s*:\s*"([^"]+)"', decision_text) if 'decision_text' in locals() else None
+                tool_input = m_in.group(1) if m_in else question
             tool = forced_tool  # override whatever the model chose
         else:
             # Normal path: let LLM decide tool & input
@@ -237,6 +240,9 @@ class RAGNodes:
                 state.answer = f"LLM error during decision step: {e}"
                 return state
 
+            decision_text = re.sub(r"^```(?:json)?\s*", "", decision_text, flags=re.IGNORECASE)
+            decision_text = re.sub(r"\s*```$", "", decision_text).strip()
+
             # Step 1b: Robust JSON parsing fallback 
             try:
                 parsed = json.loads(decision_text)
@@ -245,9 +251,10 @@ class RAGNodes:
                     tool_input = parsed["input"]
             except Exception:
                 # Try to extract a tool name with regex as a fallback
-                m = re.search(r'"tool"\s*:\s*"([^"]+)"', decision_text)
-                tool = m.group(1).lower() if m else "none"
-                tool_input = question
+                m_tool = re.search(r'"tool"\s*:\s*"([^"]+)"', decision_text)
+                tool = m_tool.group(1).lower() if m_tool else "none"
+                m_in = re.search(r'"input"\s*:\s*"([^"]+)"', decision_text)
+                tool_input = m_in.group(1) if m_in else question
 
         # Step 2: Run selected tool (if any)
         tool_result = ""
