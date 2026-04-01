@@ -9,6 +9,7 @@ class Config:
     """Configuration class for RAG system"""
     
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
     # LLM configuration (LangChain syntax: "provider:model_name")
     LLM_MODEL = "google_genai:gemini-2.5-flash"

@@ -178,14 +178,26 @@ class RAGNodes:
             func=wiki_api.run,
         )
 
-        # DUCKDUCKGO WEB SEARCH TOOL
-        ddg = DuckDuckGoSearchRun()
-    
-        websearch_tool = Tool(
-            name="web_search",
-            description="Unlimited web search using DuckDuckGo.",
-            func=ddg.run,
-        )
+        # WEB SEARCH TOOL — use Tavily when API key is available, else DuckDuckGo
+        from src.config.config import Config
+
+        if Config.TAVILY_API_KEY:
+            from langchain_community.tools.tavily_search import TavilySearchResults
+            import os
+            os.environ["TAVILY_API_KEY"] = Config.TAVILY_API_KEY
+            tavily = TavilySearchResults(max_results=5)
+            websearch_tool = Tool(
+                name="web_search",
+                description="Real-time web search via Tavily.",
+                func=tavily.run,
+            )
+        else:
+            ddg = DuckDuckGoSearchRun()
+            websearch_tool = Tool(
+                name="web_search",
+                description="Unlimited web search using DuckDuckGo.",
+                func=ddg.run,
+            )
         # REGISTER ALL TOOLS
         self.tools = {
             "retriever": retriever_tool,
@@ -240,7 +252,9 @@ class RAGNodes:
             "Available tools:\n"
             "  - retriever: search the internal indexed corpus.\n"
             "  - wikipedia: general encyclopedic knowledge (may be slightly outdated).\n"
-            "  - web_search: real-time web search, always up-to-date.\n\n"
+            "  - web_search: real-time web search"
+            f"{' via Tavily' if self.tools.get('web_search') and 'Tavily' in self.tools['web_search'].description else ' using DuckDuckGo'}"
+            ", always up-to-date.\n\n"
             "CRITICAL RULES:\n"
             "1. If the question involves recent events, sports results, elections, champions, "
             "   financial markets, 'latest', 'current', 'today','yesterday' or specific years like 2023/2024/2025/2026/2027,\n"
