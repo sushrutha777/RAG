@@ -221,7 +221,8 @@ class RAGNodes:
         # detect time-sensitive / "latest" style questions 
         q_lower = question.lower()
         time_sensitive_keywords = [
-            "latest", "today", "yesterday", "current", "now", "recent", "this year","last week", "last month", "this month", "this week",
+            "latest", "today", "yesterday", "current", "now", "recent", "this year",
+            "last week", "last month", "this month", "this week",
             "winner", "champion", "election", "price", "score", "result",
             "who is", "who won", "what happened", "who was",
             "breaking", "news", "update", "announced", "launched",
@@ -229,9 +230,20 @@ class RAGNodes:
         ]
         is_time_sensitive = any(k in q_lower for k in time_sensitive_keywords)
 
-        # If clearly time-sensitive, strongly bias towards web_search
+        # General knowledge questions also benefit from web_search (more reliable than wikipedia API)
+        general_knowledge_keywords = [
+            "where was", "where did", "where is", "where does",
+            "when was", "when did", "when is",
+            "how old", "how tall", "how much", "how many",
+            "born", "died", "age", "height", "weight",
+            "capital of", "population of", "founder of", "ceo of",
+            "president of", "prime minister",
+        ]
+        is_general_knowledge = any(k in q_lower for k in general_knowledge_keywords)
+
+        # Prefer web_search for time-sensitive OR general knowledge queries
         forced_tool = None
-        if "web_search" in self.tools and is_time_sensitive:
+        if "web_search" in self.tools and (is_time_sensitive or is_general_knowledge):
             forced_tool = "web_search"
 
         # Step 1: Ask LLM what to do (ReAct decision) 
@@ -304,33 +316,48 @@ class RAGNodes:
         if tool and tool != "none" and tool.lower() in self.tools:
             used_tool_name = tool.lower()
             tool_result = self._run_tool(used_tool_name, tool_input)
+
+            # Fallback: if result is empty/unhelpful and we didn't already use web_search, retry
+            no_result_indicators = [
+                "no results", "no documents found", "returned no results",
+                "Tool '", "could not find", "no information",
+            ]
+            if (
+                used_tool_name != "web_search"
+                and "web_search" in self.tools
+                and any(ind.lower() in tool_result.lower() for ind in no_result_indicators)
+            ):
+                fallback_result = self._run_tool("web_search", tool_input)
+                if fallback_result and not any(
+                    ind.lower() in fallback_result.lower() for ind in no_result_indicators
+                ):
+                    tool_result = fallback_result
+                    used_tool_name = "web_search (fallback)"
         else:
             # No tool: we'll answer from prior knowledge only
             tool_result = "No external tool was used. Answer from your own knowledge."
 
         # Step 3: Final Answer Synthesis — with conversation history
         final_prompt = (
-            "You are a strictly grounded question-answering assistant.\n\n"
-            "Your task is to answer the user's question ONLY using the provided retrieved context.\n\n"
+            "You are a helpful, grounded question-answering assistant.\n\n"
+            "Your task is to answer the user's question using the provided context.\n\n"
             "Context:\n"
             f"{tool_result}\n\n"
             "Conversation History:\n"
             f"{history_context}\n\n"
             "Question:\n"
             f"{question}\n\n"
-            "STRICT RULES:\n\n"
-            "1. You MUST only use information explicitly present in the context.\n"
-            "2. DO NOT use prior knowledge, assumptions, or reasoning outside the context.\n"
-            "3. DO NOT invent events, numbers, people, or explanations.\n"
-            "4. If the context does NOT clearly contain the answer, respond exactly with:\n\n"
-            "\"I could not find reliable information in the retrieved sources.\"\n\n"
-            "5. If the context partially answers the question, only state the confirmed facts and nothing more.\n"
-            "6. Do NOT speculate or fill gaps.\n"
-            "7. Do NOT mention that you are an AI model.\n"
-            "8. Keep the answer concise and factual.\n"
-            "9. DO NOT combine snippets from different, unrelated sources to fabricate a cohesive story. If facts are from different sources and seem to conflict or discuss unrelated events, do NOT merge them.\n"
-            "10. If the context contains speculative, fictional, or conflicting information, state that reliable information could not be found or summarize the conflict without asserting it as truth.\n\n"
-            "Final Answer:\n"
+            "RULES:\n\n"
+            "1. Use information from the provided context to answer the question.\n"
+            "2. If the context contains relevant information, extract and present it clearly and concisely.\n"
+            "3. DO NOT invent specific facts, statistics, dates, or quotes that are not in the context.\n"
+            "4. If the context partially answers the question, provide what you can from the context.\n"
+            "5. Only if the context contains absolutely NO relevant information, say:\n"
+            "   \"I could not find reliable information about that. Try rephrasing your question.\"\n"
+            "6. Do NOT mention that you are an AI model.\n"
+            "7. Keep the answer concise and factual.\n"
+            "8. If the context has conflicting information from different sources, mention the conflict rather than picking one.\n\n"
+            "Answer:\n"
         )
 
         try:
