@@ -151,7 +151,7 @@ def main():
     st.title("🔍 Agentic RAG: Docs, Web & Wiki")
     st.markdown("Ask questions about your **Documents**, **Wikipedia**, or **Web Search**.")
 
-    # ── Initialize RAG once (cached) ──────────────────────────
+    # Initialize RAG once (cached) 
     if not st.session_state.initialized:
         with st.spinner("Loading RAG system..."):
             try:
@@ -165,12 +165,12 @@ def main():
                 return
 
 
-    # ── Chat history display ──────────────────────────────────
+    # Chat history display 
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # ── Chat input ────────────────────────────────────────────
+    # Chat input 
     if prompt := st.chat_input("Ask a question..."):
         if not st.session_state.initialized or st.session_state.rag_system is None:
             st.error("RAG system is not ready.")
