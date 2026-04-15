@@ -58,7 +58,7 @@ class RAGNodes:
             lines.append(f"{role}: {content}")
         return "\n".join(lines)
 
-    # 0. REWRITE QUERY NODE — resolve pronouns / follow-ups
+    # 0. REWRITE QUERY NODE resolve pronouns / follow-ups
     def rewrite_query(self, state: RAGState) -> RAGState:
         """Rewrite the user question into a standalone query using conversation history.
 
@@ -106,67 +106,6 @@ class RAGNodes:
         state.retrieved_docs = docs
         return state
 
-    # 1.5 DECISION ENGINE NODE
-    def decision_engine(self, state: RAGState) -> RAGState:
-        """
-        Specialized decision node to evaluate if retrieved docs are sufficient,
-        if more context (web) is needed, or if the query is out of scope.
-        """
-        # Prepare summaries (top-k, short)
-        doc_summaries = []
-        for i, d in enumerate(state.retrieved_docs[:5], start=1):
-            content = d.page_content[:200].replace("\n", " ").strip()
-            doc_summaries.append(f"Doc {i}: {content}...")
-        
-        doc_summaries_str = "\n".join(doc_summaries) if doc_summaries else "No documents retrieved."
-
-        prompt = (
-            "You are a strict decision engine.\n\n"
-            "Context:\n"
-            "- The documents are already chunked and indexed.\n"
-            "- You will NOT ask follow-up questions.\n"
-            "- You will NOT request more context.\n"
-            "- You will make ONE decision only.\n\n"
-            "Input:\n"
-            f"User query:\n{state.question}\n\n"
-            "Retrieved document summaries (top-k, short):\n"
-            f"{doc_summaries_str}\n\n"
-            "Task:\n"
-            "Decide the best action to take.\n\n"
-            "Rules:\n"
-            "- Choose exactly ONE option from the list below.\n"
-            "- Do NOT explain your reasoning.\n"
-            "- Do NOT add extra text.\n"
-            "- Do NOT format as markdown.\n"
-            "- Output must be valid JSON only.\n\n"
-            "Options:\n"
-            "1. \"answer_from_documents\" – if the documents clearly contain the answer\n"
-            "2. \"need_more_context\" – if the documents are insufficient\n"
-            "3. \"out_of_scope\" – if the query is unrelated to the documents\n\n"
-            "Output format:\n"
-            "{\n"
-            "  \"decision\": \"<one_option>\",\n"
-            "  \"confidence\": <number between 0 and 1>\n"
-            "}\n"
-        )
-
-        try:
-            msg = self._invoke_with_retry(prompt)
-            content = getattr(msg, "content", str(msg)).strip()
-            # Clean possible markdown formatting if the model ignored instructions
-            if content.startswith("```"):
-                content = re.sub(r"```json\s*", "", content)
-                content = re.sub(r"```\s*", "", content)
-            
-            data = json.loads(content)
-            state.decision = data.get("decision", "need_more_context")
-            state.confidence = data.get("confidence", 0.0)
-        except Exception as e:
-            # Fallback
-            state.decision = "need_more_context"
-            state.confidence = 0.0
-        
-        return state
 
     # 2. BUILD TOOLSET (retriever + wikipedia + websearch)
     def _build_tools(self):
