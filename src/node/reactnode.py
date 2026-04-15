@@ -1,6 +1,7 @@
 """LangGraph nodes for RAG workflow with custom ReAct agent."""
 import json
 import re
+import time
 
 from typing import List
 from src.state.rag_state import RAGState
@@ -15,6 +16,29 @@ class RAGNodes:
         self.retriever = retriever      # VectorStoreRetriever
         self.llm = llm                  # Chat model
         self.tools = {}
+
+    # ── Retry wrapper for rate-limit resilience ───────────────
+    def _invoke_with_retry(self, prompt, max_retries=3):
+        """Invoke LLM with exponential backoff on 429 / rate-limit errors."""
+        for attempt in range(max_retries):
+            try:
+                return self.llm.invoke(prompt)
+            except Exception as e:
+                err = str(e).lower()
+                is_rate_limit = (
+                    "429" in err
+                    or "rate" in err
+                    or "resource_exhausted" in err
+                    or "resource exhausted" in err
+                    or "too many requests" in err
+                )
+                if is_rate_limit and attempt < max_retries - 1:
+                    wait = 2 ** (attempt + 1)        # 2s, 4s, 8s
+                    print(f"Rate limited — retrying in {wait}s (attempt {attempt+1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                raise                                # non-rate-limit → bubble up
+        raise Exception("Max retries exceeded due to rate limiting")
 
     # helpers
     def _format_history(self, state: RAGState) -> str:
@@ -65,7 +89,7 @@ class RAGNodes:
         )
 
         try:
-            msg = self.llm.invoke(rewrite_prompt)
+            msg = self._invoke_with_retry(rewrite_prompt)
             rewritten = getattr(msg, "content", str(msg)).strip()
             # Only accept if the model actually returned something useful
             if rewritten and len(rewritten) > 2:
@@ -127,7 +151,7 @@ class RAGNodes:
         )
 
         try:
-            msg = self.llm.invoke(prompt)
+            msg = self._invoke_with_retry(prompt)
             content = getattr(msg, "content", str(msg)).strip()
             # Clean possible markdown formatting if the model ignored instructions
             if content.startswith("```"):
@@ -274,7 +298,7 @@ class RAGNodes:
         # But better: still let LLM choose input phrasing, while forcing the tool.
         if forced_tool:
             try:
-                decision_msg = self.llm.invoke(think_prompt)
+                decision_msg = self._invoke_with_retry(think_prompt)
                 decision_text = getattr(decision_msg, "content", str(decision_msg)).strip()
                 decision_text = re.sub(r"^```(?:json)?\s*", "", decision_text, flags=re.IGNORECASE)
                 decision_text = re.sub(r"\s*```$", "", decision_text).strip()
@@ -361,7 +385,7 @@ class RAGNodes:
         )
 
         try:
-            final_msg = self.llm.invoke(final_prompt)
+            final_msg = self._invoke_with_retry(final_prompt)
             answer = getattr(final_msg, "content", str(final_msg)).strip()
             
             if not answer:

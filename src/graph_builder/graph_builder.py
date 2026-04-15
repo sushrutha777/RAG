@@ -34,33 +34,16 @@ class GraphBuilder:
         # Add nodes
         builder.add_node("rewrite_query", self.nodes.rewrite_query)
         builder.add_node("retriever", self.nodes.retrieve_docs)
-        builder.add_node("decision_engine", self.nodes.decision_engine)
         builder.add_node("responder", self.nodes.generate_answer)
         
         # Set entry point — rewrite first so pronouns are resolved
         builder.set_entry_point("rewrite_query")
         
-        # Add edges
+        # Edges: rewrite → retrieve → respond (direct chain)
+        # The responder node has its own ReAct logic with web_search,
+        # wikipedia, and retriever tools for out-of-scope queries.
         builder.add_edge("rewrite_query", "retriever")
-        builder.add_edge("retriever", "decision_engine")
-        
-        # Conditional routing from decision_engine
-        # ALL paths go to responder — even "out_of_scope" — so the ReAct
-        # agent can fall back to web_search / wikipedia for answers the
-        # indexed documents don't cover.
-        def route_decision(state: RAGState):
-            # Always route to responder; it has web_search for out-of-scope
-            # and time-sensitive queries.
-            return "responder"
-                
-        builder.add_conditional_edges(
-            "decision_engine",
-            route_decision,
-            {
-                "responder": "responder"
-            }
-        )
-        
+        builder.add_edge("retriever", "responder")
         builder.add_edge("responder", END)
         
         # Compile graph with memory checkpointer
