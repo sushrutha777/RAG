@@ -184,7 +184,7 @@ def main():
         # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                start_time = time.time()
+                start_time = time.perf_counter()
                 try:
                     result = st.session_state.rag_system.run(
                         prompt,
@@ -194,7 +194,7 @@ def main():
                 except Exception as e:
                     st.error(f"Search failed: {e}")
                     result = None
-                elapsed = time.time() - start_time
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
 
             if result:
                 raw_answer = result.get("answer")
@@ -207,7 +207,6 @@ def main():
                               "Please try rephrasing your question or ask something else.")
 
                 st.markdown(answer)
-                st.caption(f"Response time: {elapsed:.2f}s")
 
                 # Show source documents in an expander
                 docs = result.get("retrieved_docs", [])
@@ -226,6 +225,9 @@ def main():
                 fallback = "Sorry, I couldn't generate an answer. Please try again."
                 st.markdown(fallback)
                 st.session_state.chat_messages.append({"role": "assistant", "content": fallback})
+
+            # Always show timing — regardless of success or failure
+            st.caption(f"Response time: {elapsed_ms:.0f}ms")
 
 
 if __name__ == "__main__":
