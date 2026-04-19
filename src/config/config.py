@@ -14,8 +14,8 @@ class Config:
     LLM_MODEL = "google_genai:gemini-2.5-flash"
 
     # Document processing
-    CHUNK_SIZE = 500
-    CHUNK_OVERLAP = 100
+    CHUNK_SIZE = 500 #500 Characters Per Chunk
+    CHUNK_OVERLAP = 100 #100 Characters Overlap
 
     # Default URLs (if you ever want to use web docs)
     DEFAULT_URLS = [

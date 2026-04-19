@@ -194,7 +194,7 @@ def main():
                 except Exception as e:
                     st.error(f"Search failed: {e}")
                     result = None
-                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                elapsed_sec = time.perf_counter() - start_time
 
             if result:
                 raw_answer = result.get("answer")
@@ -227,7 +227,7 @@ def main():
                 st.session_state.chat_messages.append({"role": "assistant", "content": fallback})
 
             # Always show timing — regardless of success or failure
-            st.caption(f"Response time: {elapsed_ms:.0f}ms")
+            st.caption(f"Response time: {elapsed_sec:.2f}s")
 
 
 if __name__ == "__main__":
