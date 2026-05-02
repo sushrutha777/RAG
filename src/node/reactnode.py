@@ -17,7 +17,7 @@ class RAGNodes:
         self.llm = llm                  # Chat model
         self.tools = {}
 
-    # ── Retry wrapper for rate-limit resilience ───────────────
+    # Retry wrapper for rate-limit resilience
     def _invoke_with_retry(self, prompt, max_retries=3):
         """Invoke LLM with exponential backoff on 429 / rate-limit errors."""
         for attempt in range(max_retries):
